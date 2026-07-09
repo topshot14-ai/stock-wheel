@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Wheel — Random Stock Picker</title>
+  <meta name="description" content="Spin the wheel to get a random stock from the top 100 biggest US companies.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🎯 Stock Wheel</h1>
+    <p class="tagline">Spin to get a random stock from the top 100 biggest US companies</p>
+  </header>
+
+  <main>
+    <section class="wheel-area">
+      <div class="wheel-wrap">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="700" height="700"></canvas>
+        <div class="hub">
+          <span id="live-ticker">SPIN</span>
+        </div>
+      </div>
+      <button id="spin-btn">SPIN THE WHEEL</button>
+    </section>
+
+    <section class="side">
+      <div id="result-card" class="result-card hidden">
+        <div class="result-label">Your stock</div>
+        <div id="result-ticker" class="result-ticker"></div>
+        <div id="result-name" class="result-name"></div>
+        <div id="result-sector" class="result-sector"></div>
+        <div class="result-links">
+          <a id="link-tv" target="_blank" rel="noopener" class="chart-btn">📈 TradingView</a>
+          <a id="link-yahoo" target="_blank" rel="noopener" class="chart-btn">📊 Yahoo Finance</a>
+        </div>
+      </div>
+
+      <div class="history-card">
+        <div class="history-head">
+          <h2>Spin history</h2>
+          <button id="clear-history" title="Clear history">Clear</button>
+        </div>
+        <ol id="history-list" reversed></ol>
+        <p id="history-empty" class="history-empty">No spins yet — hit the button!</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Top 100 US-listed stocks by market cap · list snapshot July 2026 · not financial advice
+  </footer>
+
+  <script src="stocks.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
