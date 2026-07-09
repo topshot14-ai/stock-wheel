@@ -3,6 +3,8 @@
   const ctx = canvas.getContext("2d");
   const spinBtn = document.getElementById("spin-btn");
   const liveTicker = document.getElementById("live-ticker");
+  const modeBar = document.getElementById("mode-bar");
+  const modeDesc = document.getElementById("mode-desc");
   const resultCard = document.getElementById("result-card");
   const resultTicker = document.getElementById("result-ticker");
   const resultName = document.getElementById("result-name");
@@ -13,9 +15,9 @@
   const historyEmpty = document.getElementById("history-empty");
   const clearBtn = document.getElementById("clear-history");
 
-  const N = STOCKS.length;
-  const STEP = (Math.PI * 2) / N;
   const POINTER = -Math.PI / 2; // 12 o'clock
+  const TWO_PI = Math.PI * 2;
+  const LABEL_MAX = 150; // hide slice labels above this many slices
 
   const SECTOR_COLORS = {
     "Technology": ["#2563eb", "#1d4ed8"],
@@ -29,10 +31,47 @@
     "Utilities": ["#ca8a04", "#a16207"],
     "Materials": ["#0d9488", "#0f766e"],
     "Real Estate": ["#db2777", "#be185d"],
+    // degen categories
+    "Meme": ["#e11d48", "#be123c"],
+    "Crypto": ["#f59e0b", "#d97706"],
+    "Quantum": ["#8b5cf6", "#7c3aed"],
+    "Space": ["#0ea5e9", "#0284c7"],
+    "EV / Green": ["#22c55e", "#16a34a"],
+    "AI Hype": ["#ec4899", "#db2777"],
+    "Leveraged ETF": ["#ef4444", "#b91c1c"],
   };
 
-  let rotation = 0;      // current wheel rotation in radians
+  const MODE_KEY = "stock-wheel-mode";
+  let mode = MODES[0];
+  let stocks = mode.list;
+  let N = stocks.length;
+  let STEP = TWO_PI / N;
+  let rotation = 0;
   let spinning = false;
+
+  // ---- Modes ----
+  function setMode(m) {
+    mode = m;
+    stocks = m.list;
+    N = stocks.length;
+    STEP = TWO_PI / N;
+    rotation = 0;
+    localStorage.setItem(MODE_KEY, m.key);
+    modeDesc.textContent = m.desc + " · " + N + " slices";
+    liveTicker.textContent = "SPIN";
+    for (const btn of modeBar.children) {
+      btn.classList.toggle("active", btn.dataset.key === m.key);
+    }
+    draw();
+  }
+
+  for (const m of MODES) {
+    const btn = document.createElement("button");
+    btn.textContent = m.label;
+    btn.dataset.key = m.key;
+    btn.addEventListener("click", () => { if (!spinning) setMode(m); });
+    modeBar.appendChild(btn);
+  }
 
   // ---- Drawing ----
   function draw() {
@@ -46,34 +85,37 @@
 
     for (let i = 0; i < N; i++) {
       const a0 = i * STEP;
-      const a1 = a0 + STEP;
-      const colors = SECTOR_COLORS[STOCKS[i].s] || ["#6b7280", "#4b5563"];
+      const colors = SECTOR_COLORS[stocks[i].s] || ["#6b7280", "#4b5563"];
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.arc(0, 0, r, a0, a1);
+      ctx.arc(0, 0, r, a0, a0 + STEP);
       ctx.closePath();
       ctx.fillStyle = colors[i % 2];
       ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,0.35)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      if (N <= LABEL_MAX) {
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
 
     // ticker labels, pointing outward along each slice's center line
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = "700 11px -apple-system, 'Segoe UI', Roboto, sans-serif";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    for (let i = 0; i < N; i++) {
-      ctx.save();
-      ctx.rotate(i * STEP + STEP / 2);
-      ctx.fillText(STOCKS[i].t, r - 10, 0);
-      ctx.restore();
+    if (N <= LABEL_MAX) {
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "700 11px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < N; i++) {
+        ctx.save();
+        ctx.rotate(i * STEP + STEP / 2);
+        ctx.fillText(stocks[i].t, r - 10, 0);
+        ctx.restore();
+      }
     }
 
     // outer rim
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.arc(0, 0, r, 0, TWO_PI);
     ctx.lineWidth = 5;
     ctx.strokeStyle = "#2a3245";
     ctx.stroke();
@@ -83,15 +125,19 @@
 
   // Index of the slice currently under the pointer
   function indexAtPointer() {
-    let a = (POINTER - rotation) % (Math.PI * 2);
-    if (a < 0) a += Math.PI * 2;
+    let a = (POINTER - rotation) % TWO_PI;
+    if (a < 0) a += TWO_PI;
     return Math.floor(a / STEP) % N;
   }
 
   // ---- Tick sound (WebAudio, no assets) ----
   let audioCtx = null;
+  let lastTickAt = 0;
   function tick() {
     try {
+      const now = performance.now();
+      if (now - lastTickAt < 25) return; // don't machine-gun on 500-slice wheels
+      lastTickAt = now;
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
@@ -110,15 +156,15 @@
     if (spinning) return;
     spinning = true;
     spinBtn.disabled = true;
+    modeBar.classList.add("locked");
     resultCard.classList.add("hidden");
 
     const winner = Math.floor(Math.random() * N);
     // Land the winner's slice under the pointer, with a little jitter inside the slice
     const jitter = (Math.random() - 0.5) * STEP * 0.7;
     const winnerCenter = winner * STEP + STEP / 2;
-    let desired = POINTER - winnerCenter + jitter;
+    const desired = POINTER - winnerCenter + jitter;
 
-    const TWO_PI = Math.PI * 2;
     let delta = (desired - rotation) % TWO_PI;
     if (delta < 0) delta += TWO_PI;
     const extraSpins = 6 + Math.floor(Math.random() * 3); // 6-8 full turns
@@ -138,7 +184,7 @@
       const idx = indexAtPointer();
       if (idx !== lastIdx) {
         lastIdx = idx;
-        liveTicker.textContent = STOCKS[idx].t;
+        liveTicker.textContent = stocks[idx].t;
         tick();
       }
 
@@ -147,7 +193,7 @@
       } else {
         rotation = ((desired % TWO_PI) + TWO_PI) % TWO_PI;
         draw();
-        finish(STOCKS[winner]);
+        finish(stocks[winner]);
       }
     }
     requestAnimationFrame(frame);
@@ -156,11 +202,12 @@
   function finish(stock) {
     spinning = false;
     spinBtn.disabled = false;
+    modeBar.classList.remove("locked");
     liveTicker.textContent = stock.t;
 
     resultTicker.textContent = stock.t;
     resultName.textContent = stock.n;
-    resultSector.textContent = stock.s;
+    resultSector.textContent = stock.s + " · " + mode.label.replace(" 🎰", "");
     linkTV.href = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(stock.t);
     linkYahoo.href = "https://finance.yahoo.com/quote/" + encodeURIComponent(stock.t.replace(".", "-"));
     resultCard.classList.remove("hidden");
@@ -182,7 +229,7 @@
 
   function addHistory(stock) {
     const items = loadHistory();
-    items.unshift({ t: stock.t, n: stock.n, at: Date.now() });
+    items.unshift({ t: stock.t, n: stock.n, m: mode.label.replace(" 🎰", ""), at: Date.now() });
     saveHistory(items);
     renderHistory();
   }
@@ -200,7 +247,7 @@
         '<span class="h-ticker"></span><span class="h-name"></span><span class="h-time"></span>';
       li.querySelector(".h-ticker").textContent = it.t;
       li.querySelector(".h-name").textContent = it.n;
-      li.querySelector(".h-time").textContent = when;
+      li.querySelector(".h-time").textContent = (it.m ? it.m + " · " : "") + when;
       historyList.appendChild(li);
     }
   }
@@ -212,6 +259,8 @@
 
   spinBtn.addEventListener("click", spin);
 
-  draw();
+  // ---- Init ----
+  const savedMode = MODES.find(m => m.key === localStorage.getItem(MODE_KEY));
+  setMode(savedMode || MODES[0]);
   renderHistory();
 })();

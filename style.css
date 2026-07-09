@@ -37,8 +37,41 @@ main {
   width: 100%;
 }
 
+/* ---- Mode toggles ---- */
+.mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.mode-bar button {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mode-bar button:hover { color: var(--text); border-color: #3b4763; }
+.mode-bar button.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+  border-color: transparent;
+  color: #06120a;
+  box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+}
+.mode-bar.locked button { opacity: 0.55; cursor: default; }
+.mode-desc {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+  min-height: 1.2em;
+}
+
 /* ---- Wheel ---- */
-.wheel-area { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.wheel-area { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 
 .wheel-wrap {
   position: relative;

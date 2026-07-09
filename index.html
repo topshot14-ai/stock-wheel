@@ -11,11 +11,13 @@
 <body>
   <header>
     <h1>🎯 Stock Wheel</h1>
-    <p class="tagline">Spin to get a random stock from the top 100 biggest US companies</p>
+    <p class="tagline">Pick a pool, spin the wheel, trade what it gives you</p>
   </header>
 
   <main>
     <section class="wheel-area">
+      <div id="mode-bar" class="mode-bar"></div>
+      <p id="mode-desc" class="mode-desc"></p>
       <div class="wheel-wrap">
         <div class="pointer"></div>
         <canvas id="wheel" width="700" height="700"></canvas>
@@ -50,9 +52,10 @@
   </main>
 
   <footer>
-    Top 100 US-listed stocks by market cap · list snapshot July 2026 · not financial advice
+    Stock lists are snapshots from July 2026 · not financial advice · degen mode especially
   </footer>
 
+  <script src="sp500.js"></script>
   <script src="stocks.js"></script>
   <script src="app.js"></script>
 </body>
