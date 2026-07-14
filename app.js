@@ -228,13 +228,20 @@
         c.restore();
       }
     } else {
-      // Radial labels pointing outward along each segment's center line
-      c.font = "800 24px -apple-system, 'Segoe UI', Roboto, sans-serif";
-      c.textAlign = "right";
+      // Screen-upright labels: positioned at each segment's center but
+      // counter-rotated against the wheel, so they never mirror or invert.
+      c.font = "800 18px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      c.textAlign = "center";
       for (let i = 0; i < w.N; i++) {
+        const center = i * w.step + w.step / 2;
         c.save();
-        c.rotate(i * w.step + w.step / 2);
-        c.fillText(w.segs[i].label, r - 8, 0);
+        c.rotate(center);
+        c.translate(r * 0.55, 0);
+        c.rotate(-(w.rotation + center));
+        c.lineWidth = 4;
+        c.strokeStyle = "rgba(0,0,0,0.45)";
+        c.strokeText(w.segs[i].label, 0, 0);
+        c.fillText(w.segs[i].label, 0, 0);
         c.restore();
       }
     }
