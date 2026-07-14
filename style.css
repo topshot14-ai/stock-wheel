@@ -237,6 +237,22 @@ main {
   border-color: rgba(239,68,68,0.5);
   background: rgba(239,68,68,0.12);
 }
+.dir-badge.dte {
+  color: #fbbf24;
+  border-color: rgba(245,158,11,0.5);
+  background: rgba(245,158,11,0.12);
+}
+.dir-badge.weekly {
+  color: #38bdf8;
+  border-color: rgba(14,165,233,0.5);
+  background: rgba(14,165,233,0.12);
+}
+.dir-badge.monthly {
+  color: #a78bfa;
+  border-color: rgba(139,92,246,0.5);
+  background: rgba(139,92,246,0.12);
+}
+.direction-row + .direction-row { margin-top: 10px; }
 
 .result-links { display: flex; gap: 10px; margin-top: 18px; }
 .chart-btn {
@@ -301,6 +317,10 @@ main {
 #history-list .h-dir { font-weight: 800; font-size: 0.75rem; min-width: 34px; }
 #history-list .h-dir.call { color: #4ade80; }
 #history-list .h-dir.put { color: #f87171; }
+#history-list .h-exp { font-weight: 700; font-size: 0.72rem; }
+#history-list .h-exp.dte { color: #fbbf24; }
+#history-list .h-exp.weekly { color: #38bdf8; }
+#history-list .h-exp.monthly { color: #a78bfa; }
 #history-list .h-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #history-list .h-time { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
 .history-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 8px 0; }

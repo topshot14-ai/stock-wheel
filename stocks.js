@@ -267,6 +267,6 @@ const MODES = [
   { key: "top100", label: "Top 100", desc: "100 biggest US stocks by market cap", list: TOP100 },
   { key: "sp500", label: "S&P 500", desc: "All 503 S&P 500 constituents", list: SP500 },
   { key: "volume", label: "High Volume", desc: "Most actively traded names — easy in, easy out", list: HIGH_VOLUME },
-  { key: "degen", label: "Degen 🎰", desc: "Memes, crypto, quantum & leveraged ETFs. YOLO.", list: DEGEN },
+  { key: "degen", label: "Degen 🎰", desc: "Memes, crypto, quantum & leveraged ETFs. YOLO.", list: DEGEN, shuffle: true },
 ];
 

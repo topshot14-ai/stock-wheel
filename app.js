@@ -6,8 +6,9 @@
   const modeBar = document.getElementById("mode-bar");
   const modeDesc = document.getElementById("mode-desc");
   const dirCanvas = document.getElementById("dir-wheel");
-  const dirCtx = dirCanvas.getContext("2d");
   const dirBadge = document.getElementById("dir-badge");
+  const expCanvas = document.getElementById("exp-wheel");
+  const expBadge = document.getElementById("exp-badge");
   const resultCard = document.getElementById("result-card");
   const resultTicker = document.getElementById("result-ticker");
   const resultName = document.getElementById("result-name");
@@ -53,9 +54,27 @@
   let spinning = false;
 
   // ---- Modes ----
+  // Deterministic Fisher-Yates (mulberry32 PRNG) so shuffled wheels look
+  // mixed up but keep the same layout across visits.
+  function seededShuffle(arr, seed) {
+    let s = seed >>> 0;
+    const rand = () => {
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   function setMode(m) {
     mode = m;
-    stocks = m.list;
+    stocks = m.shuffle ? seededShuffle(m.list, 1337) : m.list;
     N = stocks.length;
     STEP = TWO_PI / N;
     rotation = 0;
@@ -154,90 +173,117 @@
     } catch (e) { /* audio blocked — fine */ }
   }
 
-  // ---- Direction mini-wheel (CALL / PUT) ----
+  // ---- Mini wheels (direction + expiration) ----
   const DIRS = [
-    { label: "CALL", cls: "call", color: "#16a34a" },
-    { label: "PUT", cls: "put", color: "#dc2626" },
+    { label: "CALL", cls: "call", color: "#16a34a", emoji: "📈" },
+    { label: "PUT", cls: "put", color: "#dc2626", emoji: "📉" },
   ];
-  let dirRotation = -Math.PI; // start with CALL upright under the pointer
+  const EXPIRIES = [
+    { label: "0DTE", cls: "dte", color: "#d97706", emoji: "⚡" },
+    { label: "WEEKLY", cls: "weekly", color: "#0284c7", emoji: "📅" },
+    { label: "MONTHLY", cls: "monthly", color: "#7c3aed", emoji: "🌙" },
+  ];
 
-  function drawDir() {
-    const w = dirCanvas.width;
-    const cx = w / 2;
-    const r = w / 2 - 4;
-    dirCtx.clearRect(0, 0, w, w);
-    dirCtx.save();
-    dirCtx.translate(cx, cx);
-    dirCtx.rotate(dirRotation);
-
-    for (let i = 0; i < 2; i++) {
-      dirCtx.beginPath();
-      dirCtx.moveTo(0, 0);
-      dirCtx.arc(0, 0, r, i * Math.PI, (i + 1) * Math.PI);
-      dirCtx.closePath();
-      dirCtx.fillStyle = DIRS[i].color;
-      dirCtx.fill();
-      dirCtx.strokeStyle = "rgba(0,0,0,0.4)";
-      dirCtx.lineWidth = 2;
-      dirCtx.stroke();
-    }
-
-    dirCtx.fillStyle = "rgba(255,255,255,0.95)";
-    dirCtx.font = "800 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
-    dirCtx.textAlign = "center";
-    dirCtx.textBaseline = "middle";
-    // Each label sits at its half's center, oriented to read upright
-    // when that half lands under the pointer (top).
-    for (let i = 0; i < 2; i++) {
-      dirCtx.save();
-      dirCtx.rotate(i * Math.PI + Math.PI);
-      dirCtx.fillText(DIRS[i].label, 0, -r * 0.55);
-      dirCtx.restore();
-    }
-
-    dirCtx.beginPath();
-    dirCtx.arc(0, 0, r, 0, TWO_PI);
-    dirCtx.lineWidth = 3;
-    dirCtx.strokeStyle = "#2a3245";
-    dirCtx.stroke();
-    dirCtx.restore();
+  function makeMini(canvas, segs, labelStyle) {
+    const step = TWO_PI / segs.length;
+    return {
+      canvas, ctx: canvas.getContext("2d"), segs,
+      N: segs.length, step, labelStyle,
+      rotation: POINTER - step / 2, // rest with the first segment under the pointer
+    };
   }
 
-  function spinDirection(onDone) {
-    const winner = Math.floor(Math.random() * 2);
-    // Land the winning half's center under the pointer, with jitter
-    const jitter = (Math.random() - 0.5) * Math.PI * 0.6;
-    const winnerCenter = winner * Math.PI + Math.PI / 2;
-    const desired = POINTER - winnerCenter + jitter;
+  function drawMini(w) {
+    const size = w.canvas.width;
+    const c = w.ctx;
+    const r = size / 2 - 4;
+    c.clearRect(0, 0, size, size);
+    c.save();
+    c.translate(size / 2, size / 2);
+    c.rotate(w.rotation);
 
-    let delta = (desired - dirRotation) % TWO_PI;
+    for (let i = 0; i < w.N; i++) {
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.arc(0, 0, r, i * w.step, (i + 1) * w.step);
+      c.closePath();
+      c.fillStyle = w.segs[i].color;
+      c.fill();
+      c.strokeStyle = "rgba(0,0,0,0.4)";
+      c.lineWidth = 2;
+      c.stroke();
+    }
+
+    c.fillStyle = "rgba(255,255,255,0.95)";
+    c.textBaseline = "middle";
+    if (w.labelStyle === "upright") {
+      // Tangential labels, oriented to read upright when their segment
+      // lands under the pointer (top).
+      c.font = "800 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      c.textAlign = "center";
+      for (let i = 0; i < w.N; i++) {
+        c.save();
+        c.rotate(i * w.step + w.step / 2 + Math.PI / 2);
+        c.fillText(w.segs[i].label, 0, -r * 0.55);
+        c.restore();
+      }
+    } else {
+      // Radial labels pointing outward along each segment's center line
+      c.font = "800 24px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      c.textAlign = "right";
+      for (let i = 0; i < w.N; i++) {
+        c.save();
+        c.rotate(i * w.step + w.step / 2);
+        c.fillText(w.segs[i].label, r - 8, 0);
+        c.restore();
+      }
+    }
+
+    c.beginPath();
+    c.arc(0, 0, r, 0, TWO_PI);
+    c.lineWidth = 3;
+    c.strokeStyle = "#2a3245";
+    c.stroke();
+    c.restore();
+  }
+
+  function spinMini(w, onDone) {
+    const winner = Math.floor(Math.random() * w.N);
+    // Land the winning segment's center under the pointer, with jitter
+    const jitter = (Math.random() - 0.5) * w.step * 0.6;
+    const desired = POINTER - (winner * w.step + w.step / 2) + jitter;
+
+    let delta = (desired - w.rotation) % TWO_PI;
     if (delta < 0) delta += TWO_PI;
     const total = delta + (4 + Math.floor(Math.random() * 2)) * TWO_PI;
 
-    const start = dirRotation;
-    const duration = 2000 + Math.random() * 400;
+    const start = w.rotation;
+    const duration = 1800 + Math.random() * 400;
     const t0 = performance.now();
-    let lastHalf = -1;
+    let lastIdx = -1;
 
     function frame(now) {
       const t = Math.min((now - t0) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 4);
-      dirRotation = start + total * eased;
-      drawDir();
+      w.rotation = start + total * eased;
+      drawMini(w);
 
-      const half = Math.floor(((dirRotation % TWO_PI) + TWO_PI) / Math.PI) % 2;
-      if (half !== lastHalf) { lastHalf = half; tick(); }
+      const idx = Math.floor(((w.rotation % TWO_PI) + TWO_PI) / w.step);
+      if (idx !== lastIdx) { lastIdx = idx; tick(); }
 
       if (t < 1) {
         requestAnimationFrame(frame);
       } else {
-        dirRotation = ((desired % TWO_PI) + TWO_PI) % TWO_PI;
-        drawDir();
-        onDone(DIRS[winner]);
+        w.rotation = ((desired % TWO_PI) + TWO_PI) % TWO_PI;
+        drawMini(w);
+        onDone(w.segs[winner]);
       }
     }
     requestAnimationFrame(frame);
   }
+
+  const dirWheel = makeMini(dirCanvas, DIRS, "upright");
+  const expWheel = makeMini(expCanvas, EXPIRIES, "radial");
 
   // ---- Spin ----
   function spin() {
@@ -297,16 +343,22 @@
     linkYahoo.href = "https://finance.yahoo.com/quote/" + encodeURIComponent(stock.t.replace(".", "-"));
     dirBadge.textContent = "?";
     dirBadge.className = "dir-badge";
+    expBadge.textContent = "?";
+    expBadge.className = "dir-badge";
     resultCard.classList.remove("hidden");
 
-    // Now spin the direction wheel; unlock everything once it lands
-    spinDirection((dir) => {
-      dirBadge.textContent = dir.label + (dir.cls === "call" ? " 📈" : " 📉");
+    // Direction wheel, then expiration wheel; unlock once both land
+    spinMini(dirWheel, (dir) => {
+      dirBadge.textContent = dir.label + " " + dir.emoji;
       dirBadge.classList.add(dir.cls);
-      addHistory(stock, dir);
-      spinning = false;
-      spinBtn.disabled = false;
-      modeBar.classList.remove("locked");
+      spinMini(expWheel, (exp) => {
+        expBadge.textContent = exp.label + " " + exp.emoji;
+        expBadge.classList.add(exp.cls);
+        addHistory(stock, dir, exp);
+        spinning = false;
+        spinBtn.disabled = false;
+        modeBar.classList.remove("locked");
+      });
     });
   }
 
@@ -322,9 +374,9 @@
     localStorage.setItem(KEY, JSON.stringify(items.slice(0, 50)));
   }
 
-  function addHistory(stock, dir) {
+  function addHistory(stock, dir, exp) {
     const items = loadHistory();
-    items.unshift({ t: stock.t, n: stock.n, m: mode.label.replace(" 🎰", ""), d: dir.label, at: Date.now() });
+    items.unshift({ t: stock.t, n: stock.n, m: mode.label.replace(" 🎰", ""), d: dir.label, e: exp.label, at: Date.now() });
     saveHistory(items);
     renderHistory();
   }
@@ -339,12 +391,17 @@
         month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
       });
       li.innerHTML =
-        '<span class="h-ticker"></span><span class="h-dir"></span><span class="h-name"></span><span class="h-time"></span>';
+        '<span class="h-ticker"></span><span class="h-dir"></span><span class="h-exp"></span><span class="h-name"></span><span class="h-time"></span>';
       li.querySelector(".h-ticker").textContent = it.t;
       const dirEl = li.querySelector(".h-dir");
       if (it.d) {
         dirEl.textContent = it.d;
         dirEl.classList.add(it.d === "CALL" ? "call" : "put");
+      }
+      const expEl = li.querySelector(".h-exp");
+      if (it.e) {
+        expEl.textContent = it.e;
+        expEl.classList.add({ "0DTE": "dte", "WEEKLY": "weekly", "MONTHLY": "monthly" }[it.e] || "weekly");
       }
       li.querySelector(".h-name").textContent = it.n;
       li.querySelector(".h-time").textContent = (it.m ? it.m + " · " : "") + when;
@@ -362,6 +419,7 @@
   // ---- Init ----
   const savedMode = MODES.find(m => m.key === localStorage.getItem(MODE_KEY));
   setMode(savedMode || MODES[0]);
-  drawDir();
+  drawMini(dirWheel);
+  drawMini(expWheel);
   renderHistory();
 })();
