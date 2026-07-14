@@ -5,6 +5,9 @@
   const liveTicker = document.getElementById("live-ticker");
   const modeBar = document.getElementById("mode-bar");
   const modeDesc = document.getElementById("mode-desc");
+  const dirCanvas = document.getElementById("dir-wheel");
+  const dirCtx = dirCanvas.getContext("2d");
+  const dirBadge = document.getElementById("dir-badge");
   const resultCard = document.getElementById("result-card");
   const resultTicker = document.getElementById("result-ticker");
   const resultName = document.getElementById("result-name");
@@ -151,6 +154,91 @@
     } catch (e) { /* audio blocked — fine */ }
   }
 
+  // ---- Direction mini-wheel (CALL / PUT) ----
+  const DIRS = [
+    { label: "CALL", cls: "call", color: "#16a34a" },
+    { label: "PUT", cls: "put", color: "#dc2626" },
+  ];
+  let dirRotation = -Math.PI; // start with CALL upright under the pointer
+
+  function drawDir() {
+    const w = dirCanvas.width;
+    const cx = w / 2;
+    const r = w / 2 - 4;
+    dirCtx.clearRect(0, 0, w, w);
+    dirCtx.save();
+    dirCtx.translate(cx, cx);
+    dirCtx.rotate(dirRotation);
+
+    for (let i = 0; i < 2; i++) {
+      dirCtx.beginPath();
+      dirCtx.moveTo(0, 0);
+      dirCtx.arc(0, 0, r, i * Math.PI, (i + 1) * Math.PI);
+      dirCtx.closePath();
+      dirCtx.fillStyle = DIRS[i].color;
+      dirCtx.fill();
+      dirCtx.strokeStyle = "rgba(0,0,0,0.4)";
+      dirCtx.lineWidth = 2;
+      dirCtx.stroke();
+    }
+
+    dirCtx.fillStyle = "rgba(255,255,255,0.95)";
+    dirCtx.font = "800 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    dirCtx.textAlign = "center";
+    dirCtx.textBaseline = "middle";
+    // Each label sits at its half's center, oriented to read upright
+    // when that half lands under the pointer (top).
+    for (let i = 0; i < 2; i++) {
+      dirCtx.save();
+      dirCtx.rotate(i * Math.PI + Math.PI);
+      dirCtx.fillText(DIRS[i].label, 0, -r * 0.55);
+      dirCtx.restore();
+    }
+
+    dirCtx.beginPath();
+    dirCtx.arc(0, 0, r, 0, TWO_PI);
+    dirCtx.lineWidth = 3;
+    dirCtx.strokeStyle = "#2a3245";
+    dirCtx.stroke();
+    dirCtx.restore();
+  }
+
+  function spinDirection(onDone) {
+    const winner = Math.floor(Math.random() * 2);
+    // Land the winning half's center under the pointer, with jitter
+    const jitter = (Math.random() - 0.5) * Math.PI * 0.6;
+    const winnerCenter = winner * Math.PI + Math.PI / 2;
+    const desired = POINTER - winnerCenter + jitter;
+
+    let delta = (desired - dirRotation) % TWO_PI;
+    if (delta < 0) delta += TWO_PI;
+    const total = delta + (4 + Math.floor(Math.random() * 2)) * TWO_PI;
+
+    const start = dirRotation;
+    const duration = 2000 + Math.random() * 400;
+    const t0 = performance.now();
+    let lastHalf = -1;
+
+    function frame(now) {
+      const t = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 4);
+      dirRotation = start + total * eased;
+      drawDir();
+
+      const half = Math.floor(((dirRotation % TWO_PI) + TWO_PI) / Math.PI) % 2;
+      if (half !== lastHalf) { lastHalf = half; tick(); }
+
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        dirRotation = ((desired % TWO_PI) + TWO_PI) % TWO_PI;
+        drawDir();
+        onDone(DIRS[winner]);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
   // ---- Spin ----
   function spin() {
     if (spinning) return;
@@ -200,9 +288,6 @@
   }
 
   function finish(stock) {
-    spinning = false;
-    spinBtn.disabled = false;
-    modeBar.classList.remove("locked");
     liveTicker.textContent = stock.t;
 
     resultTicker.textContent = stock.t;
@@ -210,9 +295,19 @@
     resultSector.textContent = stock.s + " · " + mode.label.replace(" 🎰", "");
     linkTV.href = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(stock.t);
     linkYahoo.href = "https://finance.yahoo.com/quote/" + encodeURIComponent(stock.t.replace(".", "-"));
+    dirBadge.textContent = "?";
+    dirBadge.className = "dir-badge";
     resultCard.classList.remove("hidden");
 
-    addHistory(stock);
+    // Now spin the direction wheel; unlock everything once it lands
+    spinDirection((dir) => {
+      dirBadge.textContent = dir.label + (dir.cls === "call" ? " 📈" : " 📉");
+      dirBadge.classList.add(dir.cls);
+      addHistory(stock, dir);
+      spinning = false;
+      spinBtn.disabled = false;
+      modeBar.classList.remove("locked");
+    });
   }
 
   // ---- History (localStorage) ----
@@ -227,9 +322,9 @@
     localStorage.setItem(KEY, JSON.stringify(items.slice(0, 50)));
   }
 
-  function addHistory(stock) {
+  function addHistory(stock, dir) {
     const items = loadHistory();
-    items.unshift({ t: stock.t, n: stock.n, m: mode.label.replace(" 🎰", ""), at: Date.now() });
+    items.unshift({ t: stock.t, n: stock.n, m: mode.label.replace(" 🎰", ""), d: dir.label, at: Date.now() });
     saveHistory(items);
     renderHistory();
   }
@@ -244,8 +339,13 @@
         month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
       });
       li.innerHTML =
-        '<span class="h-ticker"></span><span class="h-name"></span><span class="h-time"></span>';
+        '<span class="h-ticker"></span><span class="h-dir"></span><span class="h-name"></span><span class="h-time"></span>';
       li.querySelector(".h-ticker").textContent = it.t;
+      const dirEl = li.querySelector(".h-dir");
+      if (it.d) {
+        dirEl.textContent = it.d;
+        dirEl.classList.add(it.d === "CALL" ? "call" : "put");
+      }
       li.querySelector(".h-name").textContent = it.n;
       li.querySelector(".h-time").textContent = (it.m ? it.m + " · " : "") + when;
       historyList.appendChild(li);
@@ -262,5 +362,6 @@
   // ---- Init ----
   const savedMode = MODES.find(m => m.key === localStorage.getItem(MODE_KEY));
   setMode(savedMode || MODES[0]);
+  drawDir();
   renderHistory();
 })();

@@ -187,6 +187,57 @@ main {
   padding: 3px 12px;
 }
 
+/* ---- Direction mini-wheel ---- */
+.direction-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 16px;
+}
+.mini-wrap { position: relative; width: 110px; height: 110px; }
+#dir-wheel {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px #0a0e16, 0 6px 18px rgba(0,0,0,0.5);
+}
+.mini-pointer {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 14px solid #f8fafc;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.6));
+  z-index: 2;
+}
+.dir-badge {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  min-width: 118px;
+  text-align: center;
+}
+.dir-badge.call {
+  color: #4ade80;
+  border-color: rgba(34,197,94,0.5);
+  background: rgba(34,197,94,0.12);
+}
+.dir-badge.put {
+  color: #f87171;
+  border-color: rgba(239,68,68,0.5);
+  background: rgba(239,68,68,0.12);
+}
+
 .result-links { display: flex; gap: 10px; margin-top: 18px; }
 .chart-btn {
   flex: 1;
@@ -247,6 +298,9 @@ main {
   font-size: 0.88rem;
 }
 #history-list .h-ticker { font-weight: 800; color: var(--accent); min-width: 56px; }
+#history-list .h-dir { font-weight: 800; font-size: 0.75rem; min-width: 34px; }
+#history-list .h-dir.call { color: #4ade80; }
+#history-list .h-dir.put { color: #f87171; }
 #history-list .h-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #history-list .h-time { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
 .history-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 8px 0; }

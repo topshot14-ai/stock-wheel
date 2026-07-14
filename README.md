@@ -11,6 +11,7 @@ Spin a wheel to get a random stock from the top 100 biggest US-listed companies.
   - **High Volume** — the most actively traded names
   - **Degen 🎰** — memes, crypto plays, quantum lottos, and leveraged ETFs
 - Slices color-coded by sector (or degen category), tick sound as the wheel spins
+- After the stock lands, a second mini-wheel spins for direction: **CALL 📈** or **PUT 📉**
 - Result card with ticker, company name, sector, and one-click links to TradingView and Yahoo Finance
 - Spin history saved in your browser (localStorage), tagged with the mode used
 
